@@ -1,0 +1,1 @@
+{"upper": "targetStr = targetStr.upper()", "lower": "targetStr = targetStr.lower()", "muti": "str = targetStr.upper()\ntargetStr = str.lower()"}
