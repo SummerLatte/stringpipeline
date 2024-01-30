@@ -82,12 +82,15 @@ class RadialBlurLayer(Layer):
     # def build(self, input_shape):
     #     super(RadialBlurLayer, self).build(input_shape)
     
-    def call(self, inputs):
-        # Ensure the lambda function returns a tensor with the same dtype as the input
-        blurred_images = tf.numpy_function(self.radial_blur_func, [inputs], tf.float32)
-        # Adjust the shape of the output tensor to match the inputs
-        blurred_images.set_shape(inputs.shape)
-        return blurred_images
+    def call(self, inputs, training=True):
+        if training:
+            # Ensure the lambda function returns a tensor with the same dtype as the input
+            blurred_images = tf.numpy_function(self.radial_blur_func, [inputs], tf.float32)
+            # Adjust the shape of the output tensor to match the inputs
+            blurred_images.set_shape(inputs.shape)
+            return blurred_images
+        else:
+            return inputs
     
     def radial_blur_func(self, images):
         # images is already a numpy array here
@@ -98,8 +101,8 @@ class RadialBlurLayer(Layer):
 
             # Randomly select a blur center
             height, width = image_np.shape[:2]
-            center_x = np.random.randint(0, width)
-            center_y = np.random.randint(0, height)
+            center_x = np.random.randint(width*0.3, width*0.8)
+            center_y = np.random.randint(height*0.3, height*0.8)
 
             # Apply the radial blur
             blurred_image_np = self.apply_radial_blur(image_np, center_x, center_y)
@@ -111,10 +114,10 @@ class RadialBlurLayer(Layer):
 
     def apply_radial_blur(self, img, center_x, center_y):
         # Applying radial blur effect using OpenCV
-        # This is still a placeholder. Implement the specific radial blur logic here using OpenCV
         
         ksize = 31  # Example kernel size for GaussianBlur, should be replaced with radial blur logic
         blur_img = cv2.GaussianBlur(img, (ksize, ksize), 0)
+        # blur_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.float32)
         
         # Create the radial mask centered at (center_x, center_y)
         y, x = np.indices((img.shape[0], img.shape[1]))
@@ -124,17 +127,10 @@ class RadialBlurLayer(Layer):
         # Ensure mask values ​​lie between 0 and 1 and are of type float32
         mask = np.clip(mask, 0, 1).astype(np.float32)
 
-        # Ensure alpha is a single floating point value
-        alpha = 1 - mask
-        beta = mask  # Mask will already be a floating point due to the above astype
-
-        # Ensure they are scalar by taking the mean, if they are not supposed to be arrays
-        # Otherwise, make sure that alpha and beta are properly broadcastable to the dimensions of the images
-        alpha_scalar = np.mean(alpha)
-        beta_scalar = np.mean(beta)
-
-        # Blend the original and the blurred images
-        blended = cv2.addWeighted(img.astype(np.float32), alpha_scalar, blur_img.astype(np.float32), beta_scalar, 0)
+        diff = img - blur_img
+        for i in range(3):
+            diff[:, :, i] = diff[:, :, i] * mask
+        blended = diff + blur_img
 
         return blended
         
